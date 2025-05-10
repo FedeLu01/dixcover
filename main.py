@@ -1,4 +1,4 @@
-from services.crtsh import PassiveScanner
+from services.scanner import PassiveScanner
 
 print("Starting PassiveScanner...")
 print(PassiveScanner("mundosteam.shop").get_subdomains_by_certificates()) 
