@@ -1,4 +1,4 @@
-from app.database import Base
+from app.jobs.dixcover import Base
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, relationship
 
 class WaybackUrl(Base):
