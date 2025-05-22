@@ -1,20 +1,24 @@
 import requests
-from app.utils.utils import Parser
-from app.config.config import Config
+from app.utils.parser import Parser
+from app.config.settings import settings
+from app.utils.log import app_logger
 
 class PassiveScanner:
-    def __init__(self, domain: str, shodan_api_key: str = None, vt_api_key: str = None):
+    def __init__(self, domain: str, shodan_api_key: str, vt_api_key: str):
         self.domain = domain
-        self.shodan_api_key = shodan_api_key or Config.SHODAN_API_KEY
-        self.vt_api_key = vt_api_key or Config.VIRUSTOTAL_API_KEY
+        self.shodan_api_key = shodan_api_key
+        self.vt_api_key = vt_api_key
 
+
+    # TODO: agregar manejo de error para ausencia de api_key
+    
     def get_subdomains_from_certificates(self):
         try:
             response = requests.get(f"https://crt.sh/?q={self.domain}&output=json")
             data = Parser(response.json()).parse_crtsh()
             return data
         except requests.RequestException as e:
-            print(f"Error fetching data from crt.sh: {e}")
+            app_logger.error(f"http error: {e}")
             return []
         
     def get_subdomains_from_wayback(self):
@@ -62,7 +66,7 @@ class PassiveScanner:
     
     def get_subdomains_from_shodan(self):
         try:
-            resp = requests.get(f"https://api.shodan.io/dns/domain/{self.domain}?key={self.api_key}")
+            resp = requests.get(f"https://api.shodan.io/dns/domain/{self.domain}?key={self.shodan_api_key}")
             return resp.json()
         except requests.RequestException as e:
             print(f"Error fetching data from Shodan: {e}")

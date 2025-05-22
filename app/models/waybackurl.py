@@ -1,10 +1,7 @@
-from app.jobs.dixcover import Base
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, relationship
+from sqlmodel import Field
 
-class WaybackUrl(Base):
-    __tablename__ = "wayback_urls"
-    id = Column(Integer, primary_key=True, index=True)
-    url = Column(String, index=True)
-    detected_at = Column(DateTime)
-    subdomain_id = Column(Integer, ForeignKey("subdomains.id"))
-    subdomain = relationship("Subdomain", back_populates="subdomains")
+from app.models.base_model import BaseModel
+
+class WaybackUrls(BaseModel, table=True):
+    uri: str = Field(index=True, unique=True)
+    source: str = Field(nullable=False)
