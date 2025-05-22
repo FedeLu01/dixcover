@@ -2,12 +2,10 @@ import requests
 import json
 
 from tenacity import retry, stop_after_attempt, wait_exponential
+from app.core.exceptions.exceptions import ExternalAPIError
 from app.utils.log import app_logger
 
 
-# TODO: tengo que handlear el error {"timestamp": "2025-05-23T20:08:57.780432", "level": "ERROR", "message": 
-# TODO: "error requesting subdomain: 429 Client Error: Too Many Requests for url: https://crt.sh/?q=spa.galicia.ar&output=json"}
-# TODO: tengo que handlear error de 404 porque me rompe el flujo
 
 class CrtshClient:
     def __init__(self):
@@ -16,7 +14,7 @@ class CrtshClient:
     
     @retry(
     stop=stop_after_attempt(4), # max number of retries
-    wait=wait_exponential(multiplier=4, min=4, max=5) # exponential backoff
+    wait=wait_exponential(multiplier=5, min=4, max=5) # exponential backoff
     )
     def search_domain(self, domain):
         """ Buscar certificados para un dominio específico """
@@ -26,7 +24,9 @@ class CrtshClient:
                 'output': 'json'
             }
             
-            response = requests.get(self.base_url, params=params)
+            response = requests.get(self.base_url, params=params, timeout=45)
+            print(response.url)
+            print(response.json())
             response.raise_for_status()
             
             # crt.sh a veces devuelve HTML en lugar de JSON en caso de error

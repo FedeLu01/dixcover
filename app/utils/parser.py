@@ -1,10 +1,9 @@
 from datetime import datetime
 import re
-from urllib.parse import urlparse
 
 class Parser:
     def __init__(self, data):
-        self.data = data or None
+        self.data = data
 
     def parse_crtsh(self):
         raw_subdomains = []
@@ -31,10 +30,3 @@ class Parser:
             return []
         
         return parsed_data
-    
-    def is_valid_domain(self, user_input):
-        try:
-            hostname = urlparse(user_input)
-        except Exception as e:
-            return {f"invalid domain: {e}"}
-        return hostname.netloc
