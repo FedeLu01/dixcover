@@ -5,23 +5,21 @@ from typing import Set, List, Dict
 from threading import Lock
 from app.models.crtsh_subdomain import CrtshSubdomain
 from sqlalchemy.orm import Session
+from app.services.base_recursive_search import BaseSubdomainService
 from sqlalchemy.exc import IntegrityError
 from app.utils.log import app_logger
 
-import json
 import time
 import re
 import concurrent.futures
 
+# TODO: tengo que handlear el error {"timestamp": "2025-05-23T20:08:57.780432", "level": "ERROR", "message": 
+# TODO: "error requesting subdomain: 429 Client Error: Too Many Requests for url: https://crt.sh/?q=spa.galicia.ar&output=json"}
 
-class CrtshService:
+
+class CrtshService(BaseSubdomainService):
     def __init__(self, max_depth=5, delay=5, max_workers=5):
-        self.max_depth = max_depth
-        self.delay = delay
-        self.max_workers = max_workers
-        self.found_subdomains = set()
-        self.processed_domains = set()
-        self.lock = Lock()
+        super().__init__(max_depth, delay, max_workers)
         
     def _is_valid_subdomain(self, name, target_domain):
         """ Verificar si es un subdominio válido """
@@ -155,6 +153,6 @@ class CrtshService:
             db.commit()
             db.refresh(new_subdomain)
         except IntegrityError as e:
-            # app_logger.debug(f'error in insert: {str(e)}')
+            app_logger.debug(f'error in insert: {str(e)}')
             db.rollback()
         

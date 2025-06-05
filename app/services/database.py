@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base, scoped_session, Session
+from sqlalchemy.orm import sessionmaker, declarative_base, scoped_session
 from app.config.settings import settings
 
 # Crea el engine con pool de conexiones.
