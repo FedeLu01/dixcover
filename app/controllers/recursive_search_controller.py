@@ -5,6 +5,7 @@ from app.schemas.domainInput import DomainInput
 from app.utils.log import app_logger
 from app.services.crtsh_service import CrtshService
 from app.services.virus_total_service import VirusTotalService
+from app.services.shodan_service import ShodanService
 
 router = APIRouter(tags=["crtsh_query"])
 
@@ -22,9 +23,11 @@ def handle_recursive_search(
     """
     crtsh_service = CrtshService()
     virus_total_service = VirusTotalService()
+    shodan_service = ShodanService()
     try:
-        #background_task.add_task(crtsh_service.recursive_search, db=db, domain=req.domain)
+        background_task.add_task(crtsh_service.recursive_search, db=db, domain=req.domain)
         background_task.add_task(virus_total_service.recursive_search, db=db, domain=req.domain)
+        background_task.add_task(shodan_service.extract_and_store_subdomains_data, db=db, target_domain=req.domain)
         return {"status":f'scan initiated for domain {req.domain}'}
     except Exception as e:
         app_logger.info(f"error in post req: {e}")

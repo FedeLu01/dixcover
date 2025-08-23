@@ -3,14 +3,13 @@ from app.models.virus_total_subdomain import VirusTotalSubdomain
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from app.utils.log import app_logger
-from app.services.base_recursive_search import BaseSubdomainService
-import datetime
+from app.services.base_subdomain_service import BaseSubdomainService
 import time
 import concurrent.futures
 
 
 class VirusTotalService(BaseSubdomainService):
-    def __init__(self, max_depth=5, delay=5, max_workers=5):
+    def __init__(self, max_depth=5, delay=5, max_workers=8):
         super().__init__(max_depth, delay, max_workers)
 
     def extract_subdomains_data(self, data, target_domain, db: Session):

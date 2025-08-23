@@ -15,4 +15,5 @@ app = FastAPI(lifespan=lifespan)
 # Incluir rutas
 app.include_router(recursive_search_router)
 
-# Puedes agregar middlewares, CORS, etc. aquí si lo necesitas
+
+    

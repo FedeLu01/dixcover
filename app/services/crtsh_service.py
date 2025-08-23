@@ -1,16 +1,12 @@
 from app.clients.crtsh_client import CrtshClient
 from datetime import datetime
-from urllib.parse import urlparse
-from typing import Set, List, Dict
-from threading import Lock
 from app.models.crtsh_subdomain import CrtshSubdomain
 from sqlalchemy.orm import Session
-from app.services.base_recursive_search import BaseSubdomainService
+from app.services.base_subdomain_service import BaseSubdomainService
 from sqlalchemy.exc import IntegrityError
 from app.utils.log import app_logger
 
 import time
-import re
 import concurrent.futures
 
 # TODO: tengo que handlear el error {"timestamp": "2025-05-23T20:08:57.780432", "level": "ERROR", "message": 
@@ -18,41 +14,21 @@ import concurrent.futures
 
 
 class CrtshService(BaseSubdomainService):
-    def __init__(self, max_depth=5, delay=5, max_workers=5):
+    def __init__(self, max_depth=5, delay=5, max_workers=8):
         super().__init__(max_depth, delay, max_workers)
-        
-    def _is_valid_subdomain(self, name, target_domain):
-        """ Verificar si es un subdominio válido """
-        # Remover wildcards
-        name = name.replace('*.', '')
-        
-        # Verificar que termine con el dominio objetivo
-        if not name.endswith(f'{target_domain}') and name != target_domain:
-            return False
-            
-        # Verificar formato de dominio válido
-        domain_pattern = re.compile(
-            r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$'
-        )
-        
-        if not bool(domain_pattern.match(name)):
-            app_logger.debug(f'invalid domain: {name}')
-            
-        
-        return bool(domain_pattern.match(name))
     
     def extract_subdomains_data(self, certificates, target_domain, db: Session):
         """ Extraer subdominios unicos de los certificados """
         subdomains = set()
         
         for cert in certificates:
-            # Extraer del campo 'name_value' que contiene los SANs
+            # name_value = subdomain
             if 'name_value' in cert:
                 names = cert['name_value'].split('\n')
                 for name in names:
                     name = name.strip().lower()
                     
-                    # Filtrar solo subdominios válidos del dominio objetivo
+                    # filtrar por validos (no tiene que ser repetido ni tener wildcard)
                     if self._is_valid_subdomain(name, target_domain):
                         subdomains.add(name)
                         data = {
@@ -63,7 +39,7 @@ class CrtshService(BaseSubdomainService):
                             }
                         self.store_subdomains_data(db, data)
                         
-            # También extraer del campo 'common_name' si existe
+            # common_name = subdomain
             if 'common_name' in cert:
                 name = cert['common_name'].strip().lower()
                 if self._is_valid_subdomain(name, target_domain):
