@@ -4,17 +4,19 @@ import json
 from app.utils.log import app_logger
 from app.config.settings import settings
 
-
-class ShodanClient:
-    def __init__(self):
-        self.base_url = "https://api.shodan.io"
-
-
-    def search_domain(self, domain):
-        """ Buscar certificados para un dominio específico """
+class OtxClient:
+    def __init__(self, api_key):
+        self.otx_base_url = f"https://otx.alienvault.com"
+        self.api_key = api_key or settings.OTX_API_KEY
+    
+    def get_subdomains(self, domain):
+        headers = {
+            "X-OTX-API-KEY": self.api_key
+        }
+        
         try:
             
-            response = requests.get(f"{self.base_url}/dns/domain/{domain}?key={settings.SHODAN_API_KEY}")
+            response = requests.get(f"{self.otx_base_url}/api/v1/indicators/domain/{domain}/passive_dns", headers=headers)
             response.raise_for_status()
             
             if response.headers.get('content-type', '').startswith('application/json'):
