@@ -4,6 +4,8 @@ import json
 from app.utils.log import app_logger
 from app.config.settings import settings
 
+#TODO: en algun momento tengo que agregar la consulta a https://otx.alienvault.com/api/v1/indicators/domain/{domain}/url_list?limit=1000&page= porque quizas consiga mas info.
+
 class OtxClient:
     def __init__(self, api_key):
         self.otx_base_url = f"https://otx.alienvault.com"
