@@ -11,20 +11,20 @@ class OtxClient:
         self.otx_base_url = f"https://otx.alienvault.com"
         self.api_key = api_key or settings.OTX_API_KEY
     
-    def get_subdomains(self, domain):
+    def get_subdomains(self, target_domain):
         headers = {
             "X-OTX-API-KEY": self.api_key
         }
         
         try:
             
-            response = requests.get(f"{self.otx_base_url}/api/v1/indicators/domain/{domain}/passive_dns", headers=headers)
+            response = requests.get(f"{self.otx_base_url}/api/v1/indicators/domain/{target_domain}/passive_dns", headers=headers)
             response.raise_for_status()
             
             if response.headers.get('content-type', '').startswith('application/json'):
                 return response.json()
             else:
-                app_logger.debug(f"non json response for domain {domain}")
+                app_logger.debug(f"non json response for domain {target_domain}")
                 return []
                 
         except requests.exceptions.RequestException as e:
