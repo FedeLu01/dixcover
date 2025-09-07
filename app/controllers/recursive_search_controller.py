@@ -3,14 +3,14 @@ from sqlalchemy.orm import Session
 from app.services.database import get_db
 from app.schemas.domainInput import DomainInput
 from app.utils.log import app_logger
-from app.utils.parser import Parser
+from app.middleware.security import Security
 from app.services.crtsh_service import CrtshService
 from app.services.virus_total_service import VirusTotalService
 from app.services.shodan_service import ShodanService
 from app.services.otx_service import OtxService
 
 router = APIRouter(tags=["Subdomains_Gathering"])
-parser = Parser()
+security = Security()
 # TODO: si hago esto voy a tener que marcar un status del escaneo (puede ser en la db??)
 
 @router.post(path="/")
@@ -28,7 +28,7 @@ def handle_recursive_search(
     otx_service = OtxService()
     
     # Con esto valido ligeramente el input del usuario, al menos, para que sea una url (y tambien le saco el scheme y URI para que no rompa).
-    hostname = parser.is_valid_domain(req.domain)
+    hostname = security.is_valid_domain(req.domain)
     
     try:
         background_task.add_task(crtsh_service.recursive_search, db=db, domain=req.domain)
