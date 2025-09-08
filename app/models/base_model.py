@@ -4,5 +4,5 @@ from sqlmodel import Column, DateTime, Field, SQLModel, func
 
 
 class BaseTable(SQLModel):
-    id: Optional[int] = Field(default=None, primary_key=True, index=True)
+    id: int = Field(default=None, primary_key=True, index=True)
     detected_at: datetime = Field(default_factory=datetime.now)
