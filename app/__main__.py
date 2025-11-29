@@ -1,4 +1,4 @@
-from app.controllers.crtsh_controller import handle_recursive_search
+from app.api.crtsh_controller import handle_recursive_search
 from sqlmodel import SQLModel
 from app.services.database import engine
 

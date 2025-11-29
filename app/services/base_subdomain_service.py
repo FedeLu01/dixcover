@@ -11,8 +11,8 @@ class BaseSubdomainService:
         self.processed_domains = set()
         self.lock = Lock()
 
-    def _is_valid_subdomain(self, name, target_domain):
-        name = name.replace('*.', '')
+    def is_valid_subdomain(self, name, target_domain):
+        name = name.replace('*.', '')  # remove wildcard
         if not name.endswith(f'{target_domain}') and name != target_domain:
             return False
         domain_pattern = re.compile(

@@ -2,9 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, scoped_session, Session
 from app.config.settings import settings
 
-# Crea el engine con pool de conexiones.
+# Crea el engine con pool de conexiones para PostgreSQL.
 engine = create_engine(
-    f"mysql+pymysql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST_IP}:3306/{settings.DB_NAME}",
+    f"postgresql+psycopg2://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST_IP}:5432/{settings.DB_NAME}",
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,

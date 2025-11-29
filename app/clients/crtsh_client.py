@@ -1,40 +1,33 @@
 import requests
 import json
 
-from tenacity import retry, stop_after_attempt, wait_exponential
 from app.core.exceptions.exceptions import ExternalAPIError
 from app.utils.log import app_logger
+from app.clients.base_http_client import BaseHTTPClient
 
 
 
-class CrtshClient:
+class CrtshClient(BaseHTTPClient):
     def __init__(self):
-        self.base_url = "https://crt.sh/"
-
+        super().__init__(
+            base_url="https://crt.sh/",
+            timeout=45,
+            max_retries=3,
+            retry_delay=1.5,
+            ) 
     
-    @retry(
-    stop=stop_after_attempt(4), # max number of retries
-    wait=wait_exponential(multiplier=5, min=4, max=5) # exponential backoff
-    )
     def search_domain(self, domain):
-        """ Buscar certificados para un dominio específico """
+        """ Search certificates for a given domain """
         try:
             params = {
                 'q': f'{domain}',
                 'output': 'json'
             }
             
-            response = requests.get(self.base_url, params=params, timeout=45)
-            print(response.url)
-            print(response.json())
-            response.raise_for_status()
+            response = self.get(endpoint="", params=params)
             
-            # crt.sh a veces devuelve HTML en lugar de JSON en caso de error
-            if response.headers.get('content-type', '').startswith('application/json'):
-                return response.json()
-            else:
-                app_logger.debug(f"non json response for domain {domain}")
-                return []
+            return response
+        
                 
         except requests.exceptions.RequestException as e:
             app_logger.error(f"error requesting subdomain: {e}")

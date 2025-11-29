@@ -6,7 +6,7 @@ class StructuredLogger:
     
     def __init__(self, logger_name='StructuredLogger'):
         self.logger = logging.getLogger(logger_name)
-        self.logger.setLevel(logging.DEBUG) # Configuracion para capturar todos los niveles de logs
+        self.logger.setLevel(logging.DEBUG) # Configuration to capture all levels of logs
         
         handler = logging.StreamHandler()
         formatter = logging.Formatter('%(message)s')
@@ -22,7 +22,7 @@ class StructuredLogger:
             **kwargs
         }
         json_log = json.dumps(log_entry)
-        getattr(self.logger, level)(json_log) # Invocar el metodo correspondiente al nivel
+        getattr(self.logger, level)(json_log) # Invoke the method corresponding to the level
             
     
     def info(self, message, **kwargs):

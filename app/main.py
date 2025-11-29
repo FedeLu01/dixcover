@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.controllers.recursive_search_controller import router as recursive_search_router
+from app.api.recursive_search_controller import router as recursive_search_router
 from app.init_db import init_db # opcional
 
 @asynccontextmanager

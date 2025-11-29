@@ -31,10 +31,10 @@ def handle_recursive_search(
     # hostname = security.is_valid_domain(req.domain) TODO: no me esta devolviendo el output esperado (debe ser porque estoy devolviendo el netloc y en realidad puede entrar como input el netloc directamente, por ej: "galicia.ar").
     
     try:
-        #background_task.add_task(crtsh_service.recursive_search, db=db, domain=req.domain)
+        background_task.add_task(crtsh_service.recursive_search, db=db, domain=req.domain)
         #background_task.add_task(virus_total_service.recursive_search, db=db, domain=req.domain)
         #background_task.add_task(shodan_service.extract_and_store_subdomains_data, db=db, target_domain=req.domain)
-        background_task.add_task(otx_service.extract_and_store_data, db=db, target_domain=req.domain)
+        #background_task.add_task(otx_service.extract_and_store_data, db=db, target_domain=req.domain)
         return {"status":f'scan initiated for domain {req.domain}'}
     except Exception as e:
         app_logger.info(f"error in post req: {e}")

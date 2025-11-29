@@ -171,4 +171,3 @@ app/
 4. **Separación de responsabilidades**: Cada capa tiene su propósito
 5. **Consistency**: Convenciones de nombres claras
 
-¿Te gustaría que implemente alguna parte específica de esta reestructuración o que profundice en algún aspecto?

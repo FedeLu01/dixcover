@@ -19,7 +19,7 @@ def store_subdomains(domain: str):
     
     for subdomain in all_subdomains_data:
         try:
-            subdomain['detected_at'] = datetime.now()
+            #subdomain['detected_at'] = datetime.now()
             new_subdomain = Subdomain(**subdomain)
             db.add(new_subdomain)
             db.commit()

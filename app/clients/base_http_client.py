@@ -1,28 +1,34 @@
 # clients/base_client.py
 import requests
 import time
-import json
 import random
 
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional
 from urllib.parse import urljoin
-from abc import ABC, abstractmethod
+from abc import ABC
 from app.utils.log import app_logger
 
 class BaseHTTPClient(ABC):
-    """Cliente HTTP base con funcionalidades comunes"""
+    """Base HTTP client with common functionalities like GET, POST, retries, and error handling"""
     
-    def __init__(self, base_url: str, api_key: Optional[str] = None, 
+    def __init__(self,
+                 base_url: str,
+                 api_key: Optional[str] = None, 
                  timeout: int = 30, max_retries: int = 3, 
-                 retry_delay: float = 1.5):
+                 retry_delay: float = 1.5,
+                 content_type: Optional[str] = 'application/json',
+                 accept: Optional[str] = 'application/json'
+                 ):
         self.base_url = base_url.rstrip('/')
         self.api_key = api_key
         self.timeout = timeout
+        self.content_type = content_type
+        self.accept = accept
         self.max_retries = max_retries
         self.retry_delay = retry_delay
         self.session = requests.Session()
         
-        # Configurar headers por defecto
+        # setup default headers
         self._setup_default_headers()
     
     USER_AGENTS = [
@@ -36,44 +42,38 @@ class BaseHTTPClient(ABC):
         "Mozilla/5.0 (Android 14; Mobile; rv:123.0) Gecko/123.0 Firefox/123.0",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/122.0.0.0 Safari/537.36",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Python-urllib/3.10",
-        "Python-requests/2.31.0",
-        "Scrapy/2.11.0 (+https://scrapy.org)",
-        "python-httpx/0.27.0",
-        "aiohttp/3.9.1",
-        "Wget/1.21.3",
-        "curl/8.4.0",
         "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
         "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36",
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; Trident/7.0; rv:11.0) like Gecko",
     ]
     
     def _setup_default_headers(self):
-        """Configurar headers por defecto del cliente"""
+        """setup default headers for the client"""
         self.session.headers.update({
-            'User-Agent': f"{random.choice(self.USER_AGENTS)}",
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
+            'User-Agent': random.choice(self.USER_AGENTS),
+            'Accept': self.accept,
+            'Content-Type': self.content_type,
         })
         
-        # Agregar autenticación si está disponible
+        # add authentication header if api_key is provided
         if self.api_key:
             self._setup_authentication()
-    
-    @abstractmethod
+            
     def _setup_authentication(self):
-        """Configurar autenticación específica del cliente"""
-        pass
+        """setup authentication with API key (can be overridden)"""
+        self.session.headers.update({
+            'Authorization': f"Bearer {self.api_key}"
+        })
     
     def _build_url(self, endpoint: str) -> str:
-        """Construir URL completa"""
+        """build full URL"""
         return urljoin(f"{self.base_url}/", endpoint.lstrip('/'))
     
     def _make_request(self, method: str, endpoint: str, 
                      params: Optional[Dict] = None,
                      data: Optional[Dict] = None,
                      headers: Optional[Dict] = None) -> Dict[str, Any]:
-        """Realizar request HTTP con reintentos"""
+        """do HTTP request with retries"""
         url = self._build_url(endpoint)
         request_headers = headers or {}
         
@@ -88,7 +88,7 @@ class BaseHTTPClient(ABC):
                     timeout=self.timeout
                 )
                 
-                # Verificar rate limiting
+                # check rate limiting
                 if response.status_code == 429:
                     retry_after = int(response.headers.get('Retry-After', 60))
                     app_logger.warning(f"Rate limited. Waiting {retry_after}s")
@@ -97,7 +97,7 @@ class BaseHTTPClient(ABC):
                 
                 response.raise_for_status()
                 
-                # Intentar parsear JSON, si falla devolver texto
+                # try to parse json response
                 try:
                     return response.json()
                 except ValueError:
@@ -109,7 +109,7 @@ class BaseHTTPClient(ABC):
                 if attempt == self.max_retries:
                     raise
                 
-                # Backoff exponencial
+                # exponential backoff
                 wait_time = self.retry_delay * (2 ** attempt)
                 time.sleep(wait_time)
         
@@ -117,14 +117,14 @@ class BaseHTTPClient(ABC):
     
     def get(self, endpoint: str, params: Optional[Dict] = None, 
             headers: Optional[Dict] = None) -> Dict[str, Any]:
-        """Realizar GET request"""
+        """do GET request"""
         return self._make_request('GET', endpoint, params=params, headers=headers)
     
     def post(self, endpoint: str, data: Optional[Dict] = None,
              headers: Optional[Dict] = None) -> Dict[str, Any]:
-        """Realizar POST request"""
+        """do POST request"""
         return self._make_request('POST', endpoint, data=data, headers=headers)
     
     def close(self):
-        """Cerrar sesión HTTP"""
+        """close HTTP session"""
         self.session.close()
