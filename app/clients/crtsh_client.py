@@ -1,4 +1,3 @@
-import requests
 import json
 
 from app.core.exceptions.exceptions import ExternalAPIError
@@ -29,7 +28,7 @@ class CrtshClient(BaseHTTPClient):
             return response
         
                 
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             app_logger.error(f"error requesting subdomain: {e}")
             return []
         

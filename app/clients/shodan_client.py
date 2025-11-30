@@ -1,29 +1,23 @@
-import requests
-import json
-
+from app.clients.base_http_client import BaseHTTPClient
 from app.utils.log import app_logger
 from app.config.settings import settings
 
+import json
 
-class ShodanClient:
+class ShodanClient(BaseHTTPClient):
     def __init__(self):
-        self.base_url = "https://api.shodan.io"
+        super().__init__(base_url="https://api.shodan.io")
 
 
     def search_domain(self, domain):
-        """ Buscar certificados para un dominio específico """
+        """ search subdomains for a given domain """
         try:
             
-            response = requests.get(f"{self.base_url}/dns/domain/{domain}?key={settings.SHODAN_API_KEY}")
-            response.raise_for_status()
+            response = self.get(f"/dns/domain/{domain}?key={settings.SHODAN_API_KEY}")
             
-            if response.headers.get('content-type', '').startswith('application/json'):
-                return response.json()
-            else:
-                app_logger.debug(f"non json response for domain {domain}")
-                return []
-                
-        except requests.exceptions.RequestException as e:
+            return response.get('subdomains', [])    
+        
+        except Exception as e:
             app_logger.error(f"error requesting subdomain: {e}")
             return []
         

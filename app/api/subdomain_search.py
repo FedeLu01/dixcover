@@ -14,13 +14,13 @@ security = Security()
 # TODO: si hago esto voy a tener que marcar un status del escaneo (puede ser en la db??)
 
 @router.post(path="/")
-def handle_recursive_search(
+async def subdomain_search(
     req: DomainInput,
     background_task: BackgroundTasks,
     db: Session = Depends(get_db),
-):
+    ) -> dict:
     """
-    Controlador para buscar subdominios de un dominio específico.
+    
     """
     crtsh_service = CrtshService()
     virus_total_service = VirusTotalService()
@@ -32,9 +32,9 @@ def handle_recursive_search(
     
     try:
         background_task.add_task(crtsh_service.recursive_search, db=db, domain=req.domain)
-        #background_task.add_task(virus_total_service.recursive_search, db=db, domain=req.domain)
-        #background_task.add_task(shodan_service.extract_and_store_subdomains_data, db=db, target_domain=req.domain)
-        #background_task.add_task(otx_service.extract_and_store_data, db=db, target_domain=req.domain)
+        background_task.add_task(otx_service.extract_and_store_data, db=db, target_domain=req.domain)
+        background_task.add_task(shodan_service.extract_and_store_subdomains_data, db=db, target_domain=req.domain)
+        background_task.add_task(virus_total_service.search_subdomains, db=db, domain=req.domain)
         return {"status":f'scan initiated for domain {req.domain}'}
     except Exception as e:
         app_logger.info(f"error in post req: {e}")

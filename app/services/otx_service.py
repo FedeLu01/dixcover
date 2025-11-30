@@ -16,13 +16,17 @@ class OtxService(BaseSubdomainService):
     def extract_and_store_data(self, target_domain, db: Session):
         data = self.otx_client.get_subdomains(target_domain)
         try: 
-            for block in data["passive_dns"]:
-                if self._is_valid_subdomain(block["hostname"], target_domain):
-                    to_store = {
-                        "address": f"{block['address']}",
-                        "subdomain": f"{block['hostname']}"
-                    }
-                    self.store(db, to_store)
+            if data:
+                for block in data:
+                    if self.is_valid_subdomain(block["hostname"], target_domain):
+                        to_store = {
+                            "address": f"{block['address']}",
+                            "subdomain": f"{block['hostname']}"
+                        }
+                        self.store(db, to_store)
+            else:
+                app_logger.info(f'no data found for domain {target_domain} in OTX')
+                
         except Exception as e:
             app_logger.error(f'error extracting and storing: {e}')
             
@@ -33,7 +37,6 @@ class OtxService(BaseSubdomainService):
             db.commit()
             db.refresh(new_subdomain)
         except IntegrityError as e:
-            app_logger.debug(f'error in insert: {str(e)}')
             db.rollback()
-            
+            app_logger.debug(f'error in insert: {str(e)}')
         

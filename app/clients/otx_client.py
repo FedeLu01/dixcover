@@ -1,8 +1,6 @@
-import requests
 import json
 
 from app.utils.log import app_logger
-from app.config.settings import settings
 from app.clients.base_http_client import BaseHTTPClient
 
 #TODO: en algun momento tengo que agregar la consulta a https://otx.alienvault.com/api/v1/indicators/domain/{domain}/url_list?limit=1000&page= porque quizas consiga mas info.
@@ -11,7 +9,7 @@ class OtxClient(BaseHTTPClient):
     def __init__(self, api_key):
         super().__init__(
             base_url="https://otx.alienvault.com",
-            timeout=30,
+            timeout=45,
             max_retries=3,
             retry_delay=1.5,
             api_key=api_key
@@ -24,16 +22,11 @@ class OtxClient(BaseHTTPClient):
         
         try:
             
-            response = requests.get(f"{self.otx_base_url}/api/v1/indicators/domain/{target_domain}/passive_dns", headers=headers)
-            response.raise_for_status()
+            response = self.get(endpoint=f"/api/v1/indicators/domain/{target_domain}/passive_dns", headers=headers)
             
-            if response.headers.get('content-type', '').startswith('application/json'):
-                return response.json()
-            else:
-                app_logger.debug(f"non json response for domain {target_domain}")
-                return []
+            return response.get('passive_dns', [])
                 
-        except requests.exceptions.RequestException as e:
+        except Exception as e:
             app_logger.error(f"error requesting subdomain: {e}")
             return []
         

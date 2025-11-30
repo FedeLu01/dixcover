@@ -14,13 +14,13 @@ class ShodanService(BaseSubdomainService):
     def extract_and_store_subdomains_data(self, target_domain, db: Session):        
         data = self.shodan.search_domain(target_domain)    
         subdomains = set()
-        raw_subdomains = data['subdomains']
+
         try:
-            for sub in raw_subdomains: 
+            for sub in data: 
                 if "*" in sub:
                     continue 
                 full_subdomain = f"{sub}.{target_domain}"
-                if self._is_valid_subdomain(full_subdomain, target_domain):
+                if self.is_valid_subdomain(full_subdomain, target_domain):
                     subdomains.add(f"{sub}.{target_domain}") 
                     to_store = {
                         "subdomain": f"{sub}.{target_domain}",

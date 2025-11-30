@@ -61,9 +61,7 @@ class BaseHTTPClient(ABC):
             
     def _setup_authentication(self):
         """setup authentication with API key (can be overridden)"""
-        self.session.headers.update({
-            'Authorization': f"Bearer {self.api_key}"
-        })
+        pass
     
     def _build_url(self, endpoint: str) -> str:
         """build full URL"""
