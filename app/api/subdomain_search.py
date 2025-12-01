@@ -9,9 +9,15 @@ from app.services.virus_total_service import VirusTotalService
 from app.services.shodan_service import ShodanService
 from app.services.otx_service import OtxService
 
+import asyncio
+
 router = APIRouter(tags=["Subdomains_Gathering"])
 security = Security()
 # TODO: si hago esto voy a tener que marcar un status del escaneo (puede ser en la db??)
+
+async def concurrent_tasks(tasks: list[asyncio.Future]) -> None:
+    """Await multiple coroutines/futures in parallel."""
+    await asyncio.gather(*tasks, return_exceptions=True)
 
 @router.post(path="/")
 async def subdomain_search(
@@ -31,10 +37,17 @@ async def subdomain_search(
     # hostname = security.is_valid_domain(req.domain) TODO: no me esta devolviendo el output esperado (debe ser porque estoy devolviendo el netloc y en realidad puede entrar como input el netloc directamente, por ej: "galicia.ar").
     
     try:
-        background_task.add_task(crtsh_service.recursive_search, db=db, domain=req.domain)
-        background_task.add_task(otx_service.extract_and_store_data, db=db, target_domain=req.domain)
-        background_task.add_task(shodan_service.extract_and_store_subdomains_data, db=db, target_domain=req.domain)
-        background_task.add_task(virus_total_service.search_subdomains, db=db, domain=req.domain)
+        # prepare async tasks that run blocking service calls in the default threadpool
+        tasks = [
+            asyncio.to_thread(crtsh_service.recursive_search, db, req.domain),
+            asyncio.to_thread(otx_service.extract_and_store_data, db, req.domain),
+            asyncio.to_thread(shodan_service.extract_and_store_subdomains_data, db, req.domain),
+            asyncio.to_thread(virus_total_service.search_subdomains, db, req.domain),
+        ]
+        
+        # schedule the concurrent execution of tasks in the background
+        background_task.add_task(concurrent_tasks, tasks)
+        
         return {"status":f'scan initiated for domain {req.domain}'}
     except Exception as e:
         app_logger.info(f"error in post req: {e}")

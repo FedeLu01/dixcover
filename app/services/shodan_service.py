@@ -11,7 +11,7 @@ class ShodanService(BaseSubdomainService):
         super().__init__(max_depth, delay, max_workers)
         self.shodan = ShodanClient()
         
-    def extract_and_store_subdomains_data(self, target_domain, db: Session):        
+    def extract_and_store_subdomains_data(self, db: Session, target_domain):        
         data = self.shodan.search_domain(target_domain)    
         subdomains = set()
 

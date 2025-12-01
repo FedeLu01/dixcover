@@ -13,7 +13,7 @@ class OtxService(BaseSubdomainService):
         super().__init__()
         self.otx_client = OtxClient(settings.OTX_API_KEY)
         
-    def extract_and_store_data(self, target_domain, db: Session):
+    def extract_and_store_data(self, db: Session, target_domain):
         data = self.otx_client.get_subdomains(target_domain)
         try: 
             if data:
