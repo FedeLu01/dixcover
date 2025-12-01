@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.api.subdomain_search import router as recursive_search_router
+from app.api.subdomain_search import router as subdomain_search
 from app.init_db import init_db # opcional
 
 @asynccontextmanager
@@ -13,7 +13,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Incluir rutas
-app.include_router(recursive_search_router)
-
+app.include_router(subdomain_search)
 
     

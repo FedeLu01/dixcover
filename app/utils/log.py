@@ -14,9 +14,10 @@ class StructuredLogger:
         self.logger.addHandler(handler)
         
     
-    def _log(self, level, message, **kwargs):
+    def _log(self, level, event_type, message, **kwargs):
         log_entry = {
             'timestamp': datetime.datetime.now().isoformat(),
+            'event_type': event_type if event_type else 'NO TYPE',
             'level': level.upper(),
             'message': message,
             **kwargs
