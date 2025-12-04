@@ -4,6 +4,9 @@ cheatsheet*
 getotx.py
 otx*.json
 
+# things to fix db 
+populate_master.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 from app.services.base_subdomain_service import BaseSubdomainService
 from sqlalchemy.exc import IntegrityError
 from app.utils.log import app_logger
+from app.models.subdomains_master import MasterSubdomains
+from sqlalchemy import func
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 import concurrent.futures
 
@@ -19,6 +22,7 @@ class CrtshService(BaseSubdomainService):
     def _extract_subdomains_data(self, certificates, target_domain, db: Session):
         """ extract unique subdomains from crtsh certificates data and store them in the db """
         subdomains = set()
+        app_logger.debug(f"Crtsh: extracting from {len(certificates) if certificates else 0} certificates for {target_domain}")
         
         for cert in certificates:
             if 'name_value' in cert:
@@ -28,6 +32,7 @@ class CrtshService(BaseSubdomainService):
                     
                     # filter valid subdomains with the conditions of unique and no wildcard
                     if self.is_valid_subdomain(name, target_domain):
+                        app_logger.debug(f"Crtsh: found valid subdomain {name}")
                         subdomains.add(name)
                         data = {
                             'subdomain': name,
@@ -39,12 +44,13 @@ class CrtshService(BaseSubdomainService):
             if 'common_name' in cert:
                 name = cert['common_name'].replace('*.', '').strip().lower().split('\n')[0]
                 if self.is_valid_subdomain(name, target_domain):
+                    app_logger.debug(f"Crtsh: found valid common_name {name}")
                     subdomains.add(name)
                     data = {
-                            'subdomain': name,
-                            'registered_on': str(cert['not_before']),
-                            'expires_on': str(cert['not_after']),
-                            }
+                        'subdomain': name,
+                        'registered_on': str(cert['not_before']),
+                        'expires_on': str(cert['not_after']),
+                        }
                     self._store_subdomains_data(db, data) 
                     
         return subdomains
@@ -63,6 +69,7 @@ class CrtshService(BaseSubdomainService):
         
         # Search certificates for this domain
         certificates = crtsh_client.search_domain(domain)
+        app_logger.debug(f"Crtsh: retrieved {len(certificates) if certificates else 0} certificates for {domain}")
         
         if not certificates:
             return set()
@@ -116,13 +123,38 @@ class CrtshService(BaseSubdomainService):
 
     def _store_subdomains_data(self, db: Session, data: dict):
         """ Store subdomains in the database """
-        new_subdomain = CrtshSubdomain(**data)
         try:
-            # app_logger.debug(f"subdomain object: {new_subdomain}")
-            db.add(new_subdomain)
+            app_logger.debug(f"Crtsh: upserting {data.get('subdomain')}")
+            table = CrtshSubdomain.__table__
+            insert_stmt = pg_insert(table).values(data)
+            update_stmt = {k: insert_stmt.excluded[k] for k in data.keys() if k != 'subdomain'}
+            if update_stmt:
+                stmt = insert_stmt.on_conflict_do_update(index_elements=['subdomain'], set_=update_stmt)
+            else:
+                stmt = insert_stmt.on_conflict_do_nothing(index_elements=['subdomain'])
+            db.execute(stmt)
             db.commit()
-            db.refresh(new_subdomain)
-        except IntegrityError as e:
-            app_logger.debug(f'error in insert: {str(e)}')
+
+            # upsert into master
+            master_table = MasterSubdomains.__table__
+            master_row = {
+                'subdomain': data.get('subdomain'),
+                'source': 'crtsh',
+                'first_seen': data.get('first_seen') or data.get('detected_at'),
+                'last_seen': data.get('last_seen') or data.get('detected_at'),
+            }
+            m_insert = pg_insert(master_table).values(master_row)
+            m_update = {
+                'source': m_insert.excluded.source,
+                'first_seen': func.coalesce(func.least(master_table.c.first_seen, m_insert.excluded.first_seen), m_insert.excluded.first_seen, master_table.c.first_seen),
+                'last_seen': func.coalesce(func.greatest(master_table.c.last_seen, m_insert.excluded.last_seen), m_insert.excluded.last_seen, master_table.c.last_seen),
+            }
+            m_stmt = m_insert.on_conflict_do_update(index_elements=['subdomain'], set_=m_update)
+            db.execute(m_stmt)
+            db.commit()
+        except IntegrityError:
             db.rollback()
+        except Exception as e:
+            db.rollback()
+            app_logger.error(f'error upserting crtsh rows: {e}')
         

@@ -2,7 +2,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, scoped_session, Session
 from app.config.settings import settings
 
-# Crea el engine con pool de conexiones para PostgreSQL.
+# create engine for postgresql database
 engine = create_engine(
     f"postgresql+psycopg2://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST_IP}:5432/{settings.DB_NAME}",
     pool_pre_ping=True,
@@ -12,16 +12,16 @@ engine = create_engine(
     echo=False
 )
 
-# Fabrica de sesiones (scoped session si es multithreaded o async)
+# session factory (scoped session if multithreaded or async)
 SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))
 
-# Declarative base para modelos orm
+# declarative base for orm models
 Base = declarative_base()
 
 
 def get_db():
     """
-    Genera una nueva sesión de base de datos.
+    generates a new database session.
     """
     db = SessionLocal()
     try:
