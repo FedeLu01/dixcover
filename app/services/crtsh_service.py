@@ -10,6 +10,7 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 import concurrent.futures
+import time
 
 # TODO: tengo que handlear el error {"timestamp": "2025-05-23T20:08:57.780432", "level": "ERROR", "message": 
 # TODO: "error requesting subdomain: 429 Client Error: Too Many Requests for url: https://crt.sh/?q=spa.galicia.ar&output=json"}
@@ -69,6 +70,12 @@ class CrtshService(BaseSubdomainService):
         
         # Search certificates for this domain
         certificates = crtsh_client.search_domain(domain)
+        # polite delay to avoid hitting crt.sh rate limits
+        try:
+            app_logger.debug(f"Crtsh: sleeping {self.delay}s to avoid rate limit")
+            time.sleep(self.delay)
+        except Exception:
+            pass
         app_logger.debug(f"Crtsh: retrieved {len(certificates) if certificates else 0} certificates for {domain}")
         
         if not certificates:
@@ -157,4 +164,3 @@ class CrtshService(BaseSubdomainService):
         except Exception as e:
             db.rollback()
             app_logger.error(f'error upserting crtsh rows: {e}')
-        

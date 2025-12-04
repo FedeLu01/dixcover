@@ -87,9 +87,9 @@ async def subdomain_search(
 
         tasks = [
             asyncio.to_thread(run_crtsh, req.domain),
-            #asyncio.to_thread(run_otx, req.domain),
-            #asyncio.to_thread(run_shodan, req.domain),
-            #asyncio.to_thread(run_virustotal, req.domain),
+            asyncio.to_thread(run_otx, req.domain),
+            asyncio.to_thread(run_shodan, req.domain),
+            asyncio.to_thread(run_virustotal, req.domain),
         ]
 
         app_logger.info(f"scheduling background tasks for {req.domain}")
