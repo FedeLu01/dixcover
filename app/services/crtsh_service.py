@@ -17,7 +17,7 @@ import time
 # TODO: i feel this could be refined by only querying certificates of subdomains that are not included in any other cert as --> *.cookunity.com? 
 
 class CrtshService(BaseSubdomainService):
-    def __init__(self, max_depth=5, delay=5, max_workers=5):
+    def __init__(self, max_depth=3, delay=5, max_workers=2):
         super().__init__(max_depth, delay, max_workers)
     
     def _extract_subdomains_data(self, certificates, target_domain, db: Session):
