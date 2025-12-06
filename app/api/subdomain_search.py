@@ -9,6 +9,9 @@ from app.services.virus_total_service import VirusTotalService
 from app.services.shodan_service import ShodanService
 from app.services.otx_service import OtxService
 from app.services.database import SessionLocal
+from app.models.domain_requested import DomainRequested
+from fastapi import HTTPException
+from datetime import datetime
 
 import asyncio
 
@@ -38,6 +41,28 @@ async def subdomain_search(
     # hostname = security.is_valid_domain(req.domain) TODO: no me esta devolviendo el output esperado (debe ser porque estoy devolviendo el netloc y en realidad puede entrar como input el netloc directamente, por ej: "galicia.ar").
     
     try:
+        # cleanup expired requests
+        try:
+            db.query(DomainRequested).filter(DomainRequested.time_to_zero <= datetime.now()).delete()
+            db.commit()
+        except Exception:
+            db.rollback()
+
+        # block if same domain already requested and not expired
+        existing = db.query(DomainRequested).filter(
+            DomainRequested.domain == req.domain,
+            DomainRequested.time_to_zero > datetime.now()
+        ).first()
+        if existing:
+            raise HTTPException(status_code=429, detail=f"scan already scheduled until {existing.time_to_zero}")
+
+        # insert a lock row to prevent duplicate scans for the next 15 minutes
+        try:
+            lock = DomainRequested(domain=req.domain)
+            db.add(lock)
+            db.commit()
+        except Exception:
+            db.rollback()
         # prepare async tasks that run blocking service calls in the default threadpool
         # NOTE: do NOT pass the request-scoped `db` into background tasks — it will be closed.
 
@@ -87,9 +112,9 @@ async def subdomain_search(
 
         tasks = [
             asyncio.to_thread(run_crtsh, req.domain),
-            asyncio.to_thread(run_otx, req.domain),
-            asyncio.to_thread(run_shodan, req.domain),
-            asyncio.to_thread(run_virustotal, req.domain),
+            # asyncio.to_thread(run_otx, req.domain),
+            # asyncio.to_thread(run_shodan, req.domain),
+            # asyncio.to_thread(run_virustotal, req.domain),
         ]
 
         app_logger.info(f"scheduling background tasks for {req.domain}")
@@ -97,5 +122,10 @@ async def subdomain_search(
         background_task.add_task(concurrent_tasks, tasks)
 
         return {"status": f'scan initiated for domain {req.domain}'}
+    except HTTPException:
+        # re-raise HTTPExceptions so FastAPI can handle them (429 for duplicates)
+        raise
     except Exception as e:
         app_logger.error(f"error in post req: {e}")
+        # return HTTP 500 with error detail instead of returning None
+        raise HTTPException(status_code=500, detail=str(e))

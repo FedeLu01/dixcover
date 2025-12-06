@@ -1,9 +1,11 @@
 from sqlmodel import Field
+from datetime import datetime, timedelta
 
 from app.models.base_model import BaseTable
 
 class DomainRequested(BaseTable, table=True):
-    domain: str = Field(index=True)
-    requested_at: str = Field()
-    client_ip: str = Field()
+    domain: str = Field(default= None, index=True)
+    time_to_zero: datetime = Field(
+        default_factory=lambda: datetime.now() + timedelta(minutes=15)
+        )
     
