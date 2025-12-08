@@ -12,12 +12,11 @@ from app.services.database import SessionLocal
 from app.models.domain_requested import DomainRequested
 from fastapi import HTTPException
 from datetime import datetime
+from app.jobs.scheduler import add_daily_job
 
 import asyncio
 
 router = APIRouter(tags=["Subdomains_Gathering"])
-security = Security()
-# TODO: i have to set a status of the scan to not permit concurrent scans for the same domain
 
 async def concurrent_tasks(tasks: list[asyncio.Future]) -> None:
     """Await multiple coroutines/futures in parallel."""
@@ -29,17 +28,11 @@ async def subdomain_search(
     background_task: BackgroundTasks,
     db: Session = Depends(get_db),
     ) -> dict:
-    """
-    
-    """
     crtsh_service = CrtshService()
     virus_total_service = VirusTotalService()
     shodan_service = ShodanService()
     otx_service = OtxService()
-    
-    # Con esto valido ligeramente el input del usuario, al menos, para que sea una url (y tambien le saco el scheme y URI para que no rompa).
-    # hostname = security.is_valid_domain(req.domain) TODO: no me esta devolviendo el output esperado (debe ser porque estoy devolviendo el netloc y en realidad puede entrar como input el netloc directamente, por ej: "galicia.ar").
-    
+        
     try:
         # cleanup expired requests
         try:
@@ -56,11 +49,16 @@ async def subdomain_search(
         if existing:
             raise HTTPException(status_code=429, detail=f"scan already scheduled until {existing.time_to_zero}")
 
-        # insert a lock row to prevent duplicate scans for the next 15 minutes
+        # insert a lock row and mark as scheduled to prevent duplicate/manual scans
         try:
-            lock = DomainRequested(domain=req.domain)
+            lock = DomainRequested(domain=req.domain, scheduled=True)
             db.add(lock)
             db.commit()
+            # register a daily scheduled job for this domain (idempotent)
+            try:
+                add_daily_job(req.domain)
+            except Exception as e:
+                app_logger.error(f"failed to schedule daily job for {req.domain}: {e}")
         except Exception:
             db.rollback()
         # prepare async tasks that run blocking service calls in the default threadpool
@@ -112,9 +110,9 @@ async def subdomain_search(
 
         tasks = [
             asyncio.to_thread(run_crtsh, req.domain),
-            # asyncio.to_thread(run_otx, req.domain),
-            # asyncio.to_thread(run_shodan, req.domain),
-            # asyncio.to_thread(run_virustotal, req.domain),
+            asyncio.to_thread(run_otx, req.domain),
+            asyncio.to_thread(run_shodan, req.domain),
+            asyncio.to_thread(run_virustotal, req.domain),
         ]
 
         app_logger.info(f"scheduling background tasks for {req.domain}")
