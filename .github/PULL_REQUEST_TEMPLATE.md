@@ -13,7 +13,6 @@ A short description of the change (one or two sentences).
 - [ ] New feature (non-breaking change which adds functionality)
 - [ ] Breaking change (fix or feature that would cause existing behavior to change)
 - [ ] Documentation update
-- [ ] Infrastructure / CI
 
 ## Related issues
 
@@ -37,14 +36,6 @@ pip install -r requirements.txt
 # run tests
 pytest -q
 ```
-
-## Checklist
-
-- [ ] I have read the contribution guidelines
-- [ ] Tests added/updated where applicable
-- [ ] Documentation updated if needed (README, CHANGELOG)
-- [ ] Migration files added if the DB schema changed
-- [ ] All CI checks pass
 
 ## Migration notes (if any)
 
