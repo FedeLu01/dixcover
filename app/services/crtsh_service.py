@@ -5,17 +5,11 @@ from app.services.base_subdomain_service import BaseSubdomainService
 from sqlalchemy.exc import IntegrityError
 from app.utils.log import app_logger
 from app.models.subdomains_master import MasterSubdomains
-from sqlalchemy import func
 from sqlmodel import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 import concurrent.futures
 import time
-
-# TODO: tengo que handlear el error {"timestamp": "2025-05-23T20:08:57.780432", "level": "ERROR", "message": 
-# TODO: "error requesting subdomain: 429 Client Error: Too Many Requests for url: https://crt.sh/?q=spa.galicia.ar&output=json"}
-# TODO: i feel this could be refined by only querying certificates of subdomains that are not included in any other cert as --> *.cookunity.com? 
-
 class CrtshService(BaseSubdomainService):
     def __init__(self, max_depth=3, delay=5, max_workers=2):
         super().__init__(max_depth, delay, max_workers)

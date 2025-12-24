@@ -10,8 +10,6 @@ from app.utils.log import app_logger
 from app.config.settings import settings
 from app.services.base_subdomain_service import BaseSubdomainService
 
-# TODO: estoy teniendo error: error extracting and storing: list indices must be integers or slices, not str
-
 class OtxService(BaseSubdomainService):
     def __init__(self):
         super().__init__()

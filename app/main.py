@@ -16,7 +16,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-# Incluir rutas
+# include routes
 app.include_router(subdomain_search)
 app.include_router(probe_router)
 

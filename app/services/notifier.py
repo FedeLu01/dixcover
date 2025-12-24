@@ -3,7 +3,6 @@ from datetime import datetime
 
 from app.utils.log import app_logger
 import os
-import json
 import requests
 from typing import Dict
 from typing import List
