@@ -16,6 +16,11 @@ import time
 class VirusTotalService(BaseSubdomainService):
     def __init__(self, delay=1):
         super().__init__(delay)
+        from app.config.settings import settings
+        # disable service if no API key configured
+        self.enabled = bool(settings.VIRUS_TOTAL_API_KEY)
+        if not self.enabled:
+            app_logger.info("VirusTotal service disabled: no VIRUS_TOTAL_API_KEY configured")
 
     def extract_subdomains_data(self, data, target_domain, db: Session):
         subdomains = set()
@@ -37,6 +42,10 @@ class VirusTotalService(BaseSubdomainService):
         return subdomains
 
     def search_subdomains(self, db: Session, domain):
+        if not getattr(self, 'enabled', False):
+            app_logger.debug(f"VirusTotal: skipped for {domain} (no API key)")
+            return set()
+
         virus_total_client = VirusTotalClient()
         app_logger.info(f"VirusTotal: starting search for {domain}")
         all_subdomains = set()

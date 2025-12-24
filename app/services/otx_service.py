@@ -13,9 +13,20 @@ from app.services.base_subdomain_service import BaseSubdomainService
 class OtxService(BaseSubdomainService):
     def __init__(self):
         super().__init__()
-        self.otx_client = OtxClient(settings.OTX_API_KEY)
+        # Disable the service if no API key is configured
+        self.enabled = bool(settings.OTX_API_KEY)
+        if self.enabled:
+            self.otx_client = OtxClient(settings.OTX_API_KEY)
+            app_logger.info("OTX service enabled")
+        else:
+            self.otx_client = None
+            app_logger.info("OTX service disabled: no OTX API key configured")
         
     def extract_and_store_data(self, db: Session, target_domain):
+        if not getattr(self, 'enabled', False):
+            app_logger.debug(f"OTX: skipped for {target_domain} (no API key)")
+            return
+
         data = self.otx_client.get_subdomains(target_domain)
         app_logger.info(f'OTX: fetched {len(data) if data else 0} records for {target_domain}')
         try: 

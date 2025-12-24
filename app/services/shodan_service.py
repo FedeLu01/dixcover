@@ -8,15 +8,27 @@ from app.models.subdomains_master import MasterSubdomains
 from sqlalchemy import func
 from sqlmodel import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from app.config.settings import settings
 
 
 class ShodanService(BaseSubdomainService):
     def __init__(self, max_depth=5, delay=5, max_workers=8):
         super().__init__(max_depth, delay, max_workers)
-        self.shodan = ShodanClient()
+        # disable service if SHODAN API key is not set
+        self.enabled = bool(settings.SHODAN_API_KEY)
+        if self.enabled:
+            self.shodan = ShodanClient()
+            app_logger.info("Shodan service enabled")
+        else:
+            self.shodan = None
+            app_logger.info("Shodan service disabled: no SHODAN_API_KEY configured")
         
     def extract_and_store_subdomains_data(self, db: Session, target_domain):        
-        data = self.shodan.search_domain(target_domain)    
+        if not getattr(self, 'enabled', False):
+            app_logger.debug(f"Shodan: skipped for {target_domain} (no API key)")
+            return set()
+
+        data = self.shodan.search_domain(target_domain)
         subdomains = set()
 
         app_logger.info(f"Shodan: fetched {len(data) if data else 0} items for {target_domain}")
