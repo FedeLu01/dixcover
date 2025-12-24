@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:14-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-dixcover}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret} # Please, don't hard-code secrets
+      POSTGRES_DB: ${DB_NAME:-dixcover_db}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    image: dixcover_web:latest
+    restart: unless-stopped
+    depends_on:
+      - db
+    working_dir: /app
+    volumes:
+      - ./:/app:rw
+    env_file:
+      - .env
+    environment:
+      # make sure the app can reach the db service by name
+      DB_HOST_IP: ${DB_HOST_IP:-db}
+      DB_USER: ${DB_USER:-dixcover}
+      DB_PASSWORD: ${DB_PASSWORD:-secret} # Please, don't hard-code secrets
+      DB_NAME: ${DB_NAME:-dixcover_db}
+    command: bash -lc "uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "8000:8000"
+
+volumes:
+  db_data:
