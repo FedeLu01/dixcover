@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 from sqlmodel import select
-from sqlalchemy import or_
+from sqlalchemy import or_, func
 from sqlalchemy.orm import Session
 
 from app.models.subdomains_master import MasterSubdomains
@@ -19,43 +19,62 @@ class DataConsumeService:
         return f"%.{domain}"
 
     @staticmethod
-    def list_master_subdomains(db: Session, domain: str, page: int, per_page: int) -> List[MasterSubdomains]:
+    def list_master_subdomains(
+        db: Session, domain: str, page: Optional[int] = None, per_page: Optional[int] = None
+    ) -> List[MasterSubdomains]:
+        """List master subdomains for `domain`.
+
+        If `page` and `per_page` are provided, apply OFFSET/LIMIT pagination.
+        Results are ordered by `created_at` DESC (newest first) for stable paging.
+        """
         pattern = DataConsumeService._like_pattern(domain)
         stmt = (
             select(MasterSubdomains)
             .where(or_(MasterSubdomains.subdomain.ilike(pattern), MasterSubdomains.subdomain == domain))
-            .offset(page * per_page)
-            .limit(per_page)
+            .order_by(MasterSubdomains.created_at.desc())
         )
-        # Use SQLAlchemy-compatible execute() and scalars() to retrieve ORM objects
+
+        if page is not None and per_page is not None:
+            stmt = stmt.offset(page * per_page).limit(per_page)
+
         return db.execute(stmt).scalars().all()
 
     @staticmethod
-    def list_all_master_subdomains(db: Session, domain: str) -> List[MasterSubdomains]:
+    def count_master_subdomains(db: Session, domain: str) -> int:
+        """Return total number of master subdomains matching `domain`."""
         pattern = DataConsumeService._like_pattern(domain)
-        stmt = (
-            select(MasterSubdomains)
-            .where(or_(MasterSubdomains.subdomain.ilike(pattern), MasterSubdomains.subdomain == domain))
+        stmt = select(func.count()).select_from(MasterSubdomains).where(
+            or_(MasterSubdomains.subdomain.ilike(pattern), MasterSubdomains.subdomain == domain)
         )
-        return db.execute(stmt).scalars().all()
+        # scalar_one returns the single aggregated integer result
+        return int(db.execute(stmt).scalar_one())
 
     @staticmethod
-    def list_alive_subdomains(db: Session, domain: str, page: int, per_page: int) -> List[AliveSubdomain]:
+    def list_alive_subdomains(
+        db: Session, domain: str, page: Optional[int] = None, per_page: Optional[int] = None
+    ) -> List[AliveSubdomain]:
+        """List alive subdomains for `domain`.
+
+        If `page` and `per_page` are provided, apply OFFSET/LIMIT pagination.
+        Results are ordered by `probed_at` DESC (most recent probes first).
+        """
         pattern = DataConsumeService._like_pattern(domain)
         stmt = (
             select(AliveSubdomain)
             .where(or_(AliveSubdomain.subdomain.ilike(pattern), AliveSubdomain.subdomain == domain))
-            .offset(page * per_page)
-            .limit(per_page)
+            .order_by(AliveSubdomain.probed_at.desc())
         )
-        # Use SQLAlchemy-compatible execute() and scalars() to retrieve ORM objects
+
+        if page is not None and per_page is not None:
+            stmt = stmt.offset(page * per_page).limit(per_page)
+
         return db.execute(stmt).scalars().all()
 
     @staticmethod
-    def list_all_alive_subdomains(db: Session, domain: str) -> List[AliveSubdomain]:
+    def count_alive_subdomains(db: Session, domain: str) -> int:
+        """Return total number of alive subdomains matching `domain`."""
         pattern = DataConsumeService._like_pattern(domain)
-        stmt = (
-            select(AliveSubdomain)
-            .where(or_(AliveSubdomain.subdomain.ilike(pattern), AliveSubdomain.subdomain == domain))
+        stmt = select(func.count()).select_from(AliveSubdomain).where(
+            or_(AliveSubdomain.subdomain.ilike(pattern), AliveSubdomain.subdomain == domain)
         )
-        return db.execute(stmt).scalars().all()
+        return int(db.execute(stmt).scalar_one())

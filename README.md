@@ -133,6 +133,72 @@ curl -X POST "http://127.0.0.1:8000/probe?limit=50"
 
 You can use `yaak` too, or any other API client to call the endpoints above.
 
+### Data Consume
+
+A dedicated endpoint provides read-only access to collected subdomain data.
+
+- `POST /domains/data` — Query stored subdomains or alive probe results for a given domain.
+
+Request body (JSON):
+
+```json
+{
+	"domain": "example.com",
+	"source": "all_subdomains"   // or "alive_subdomain"
+}
+```
+
+Query params:
+- `page` (int, default 0) — zero-based page index
+- `per_page` (int, default 50, max 100) — results per page
+
+Response format (Virustotal-like):
+
+```json
+{
+	"data": [ /* list of objects (see below) */ ],
+	"meta": { "count": 84, "cursor": "<base64-cursor>" },
+	"links": { "self": "...", "next": "..." }
+}
+```
+
+Notes:
+- When `source` is `all_subdomains` each item in `data` contains:
+	- `subdomain` (string), `sources` (array of strings), `created_at` (ISO datetime or null).
+- When `source` is `alive_subdomain` each item in `data` contains:
+	- `subdomain` (string), `probed_at` (ISO datetime or null), `status_code` (int or null).
+- The endpoint returns the page's items in `data`. The `meta.count` is the total number of matching items (across all pages). `meta.cursor` is a base64-encoded JSON describing the next page (limit/offset). `links.next` is a convenience URL for the next page.
+- Pagination headers: responses include `X-Page`, `X-Per-Page`, and `X-Total-Count`.
+- The API validates `domain` strictly (two-label domains like `example.com`) and `source` is an enum value: `all_subdomains` or `alive_subdomain`.
+
+Example (get first page of alive hosts):
+
+```bash
+curl -X POST 'http://127.0.0.1:8000/domains/data?page=0&per_page=50' \
+	-H "Content-Type: application/json" \
+	-d '{"domain":"example.com","source":"alive_subdomain"}'
+```
+
+Example response snippet:
+
+```json
+{
+	"data": [
+		{"subdomain": "a.example.com", "probed_at": "2025-12-24T05:17:09.724461", "status_code": 200},
+		{"subdomain": "b.example.com", "probed_at": null, "status_code": null}
+	],
+	"meta": {"count": 84, "cursor": "eyJsaW1pdCI6IDQwLCAib2Zmc2V0IjogNDB9"},
+	"links": {"self": "...", "next": "..."}
+}
+```
+
+Caching and performance:
+- The endpoint uses a short-lived in-memory cache to provide `count` and cursor-style pagination without repeated expensive DB COUNT queries. The cache TTL is short (suitable for local/dev use). For production use consider a Redis-backed cache or cursor-based DB queries.
+
+Security:
+- Domain inputs are strictly validated and all DB access uses parameterized ORM queries; the `source` value is an enum so only allowed values are accepted.
+
+
 ## Notifications
 
 Notifier supports Slack and Discord via incoming webhooks. The notifier detects configured platforms by inspecting the environment variables `SLACK_WEBHOOK_URL` and `DISCORD_WEBHOOK_URL` at process startup. If present, notifications will be sent when new alive subdomains are discovered.
