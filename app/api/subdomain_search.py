@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.services.database import get_db
-from app.schemas.domainInput import DomainInput
+from app.schemas.domain_input import DomainInput
 from app.utils.log import app_logger
 from app.middleware.security import Security
 from app.services.crtsh_service import CrtshService

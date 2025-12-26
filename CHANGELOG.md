@@ -6,6 +6,15 @@ The format is based on "Keep a Changelog" and the project is maintained under Se
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-12-26
+### Added
+- New `GET /domains/data` endpoint for read-only access to collected subdomain data
+- Support for querying both master subdomains (`all_subdomains`) and alive probe results (`alive_subdomain`)
+- Page-based pagination with configurable `page` and `per_page` parameters (default 50, max 100 per page)
+- Pagination metadata in response headers (`X-Page`, `X-Per-Page`, `X-Total-Count`)
+- HATEOAS-style links in response (`self` and `next` URLs for navigation)
+- `DataConsumeService` with static methods for efficient database queries and pagination
+
 ## [0.1.0] - 2025-12-23
 ### Added
 - Initial MVP release of Dixcover: an API-focused subdomain reconnaissance sensor.
