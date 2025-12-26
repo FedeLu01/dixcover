@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.api.subdomain_search import router as subdomain_search
 from app.api.probe import router as probe_router
+from app.api.data_consume import router as data_consume_router
 from app.jobs.scheduler import start_scheduler, shutdown_scheduler, add_daily_probe_job
 
 @asynccontextmanager
@@ -19,5 +20,6 @@ app = FastAPI(lifespan=lifespan)
 # include routes
 app.include_router(subdomain_search)
 app.include_router(probe_router)
+app.include_router(data_consume_router)
 
     
