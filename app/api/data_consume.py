@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from sqlalchemy.orm import Session
 
@@ -6,9 +6,7 @@ from app.services.database import get_db
 from app.middleware.security import Security
 from app.schemas.data_consume import SourceEnum, SubdomainOut, AliveOut
 from app.services.data_consume_service import DataConsumeService
-import json
-import base64
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode
 
 router = APIRouter(tags=["Data_Consume"])
 
@@ -43,13 +41,9 @@ def domain_data(
     if page < 0 or per_page < 1 or per_page > 100:
         raise HTTPException(status_code=400, detail="invalid pagination params")
 
-    svc = DataConsumeService()
-    # Use DB-level pagination + COUNT to avoid loading all rows into memory
-    offset = page * per_page
-
     if source.value == "all_subdomains":
-        total_count = svc.count_master_subdomains(db, clean_domain)
-        rows = svc.list_master_subdomains(db, clean_domain, page=page, per_page=per_page)
+        total_count = DataConsumeService.count_master_subdomains(db, clean_domain)
+        rows = DataConsumeService.list_master_subdomains(db, clean_domain, page=page, per_page=per_page)
         results = [
             SubdomainOut(
                 subdomain=r.subdomain,
@@ -59,8 +53,8 @@ def domain_data(
             for r in rows
         ]
     else:
-        total_count = svc.count_alive_subdomains(db, clean_domain)
-        rows = svc.list_alive_subdomains(db, clean_domain, page=page, per_page=per_page)
+        total_count = DataConsumeService.count_alive_subdomains(db, clean_domain)
+        rows = DataConsumeService.list_alive_subdomains(db, clean_domain, page=page, per_page=per_page)
         results = [
             AliveOut(
                 subdomain=r.subdomain,
@@ -75,26 +69,19 @@ def domain_data(
     response.headers["X-Per-Page"] = str(per_page)
     response.headers["X-Total-Count"] = str(total_count)
 
-    # Build cursor for next page (base64-encoded JSON with limit/offset)
-    next_cursor = ""
-    if offset + per_page < total_count:
-        cursor_payload = {"limit": per_page, "offset": offset + per_page}
-        next_cursor = base64.b64encode(json.dumps(cursor_payload).encode()).decode()
-
     # Build links (self and next). If Request available, use it to build absolute URLs.
-    # keep domain and source in the body, but provide cursor-based next as query param
     base = str(request.url).split("?")[0]
     # include domain and source in the self link to make it reproducible
     self_q = urlencode({"domain": domain, "source": source.value, "page": page, "per_page": per_page})
     self_url = f"{base}?{self_q}"
     next_url = ""
-    if next_cursor:
-        next_q = urlencode({"domain": domain, "source": source.value, "page": page + 1, "per_page": per_page, "cursor": next_cursor})
+    if (page + 1) * per_page < total_count:
+        next_q = urlencode({"domain": domain, "source": source.value, "page": page + 1, "per_page": per_page})
         next_url = f"{base}?{next_q}"
 
-    response_body: Dict[str, Dict] = {
+    response_body: Dict[str, Any] = {
         "data": results,
-        "meta": {"count": total_count, "cursor": next_cursor},
+        "meta": {"count": total_count},
         "links": {"self": self_url or "", "next": next_url or ""},
     }
 
