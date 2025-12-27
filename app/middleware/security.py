@@ -10,8 +10,8 @@ class Security:
     - Accepts either a plain domain or a URL; tldextract handles URL parsing automatically.
     - Valid domains must be 2LD (second-level domain) only, supporting multi-level TLDs.
       Examples: `example.com`, `example.com.ar`, `example.co.uk`
-    - Rejects IP addresses, credentials, subdomains (e.g. `www.example.com`), and inputs containing paths.
-    - Uses tldextract for proper TLD handling and pyvalidators for format validation.
+    - Rejects IP addresses, credentials, subdomains (e.g. `www.example.com`).
+    - Uses tldextract for proper TLD handling and validators.domain for format validation.
     """
 
     def is_valid_domain(self, domain: str) -> bool:
@@ -48,7 +48,7 @@ class Security:
         # Reconstruct the full domain for validation (domain + suffix)
         full_domain = f"{extracted.domain}.{extracted.suffix}"
 
-        # Use pyvalidators for robust domain format validation
+        # Use validators.domain for robust domain format validation
         try:
             return validate_domain(full_domain) is True
         except (ValidationError, UnicodeError):
