@@ -6,6 +6,15 @@ The format is based on "Keep a Changelog" and the project is maintained under Se
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-12-26
+### Changed
+- Improved domain validation to support multi-level TLDs (e.g., `example.com.ar`, `example.co.uk`)
+- Replaced custom regex validation with `tldextract` and `validators.domain` for more robust RFC-compliant validation
+- Simplified domain parsing logic by removing redundant `urlparse` usage (tldextract handles URLs, ports, and paths automatically)
+
+### Added
+- Added `tldextract==5.1.2` and `validators==0.34.0` dependencies for enhanced domain validation
+
 ## [0.2.0] - 2025-12-26
 ### Added
 - New `GET /domains/data` endpoint for read-only access to collected subdomain data
