@@ -10,3 +10,5 @@ python-dotenv==1.1.0
 pydantic==2.11.4
 pydantic-settings==2.9.1
 dnspython==2.7.0
+validators==0.34.0
+tldextract==5.1.2

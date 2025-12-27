@@ -1,22 +1,18 @@
-import re
-from urllib.parse import urlparse
+import tldextract
+from validators import domain as validate_domain
+from validators.utils import ValidationError
 
 
 class Security:
     """Domain validator.
 
     Behavior:
-    - Accepts either a plain domain or a URL; if a URL is provided the hostname is extracted.
-    - Valid domains must be exactly two labels (examples: `example.com`).
+    - Accepts either a plain domain or a URL; tldextract handles URL parsing automatically.
+    - Valid domains must be 2LD (second-level domain) only, supporting multi-level TLDs.
+      Examples: `example.com`, `example.com.ar`, `example.co.uk`
     - Rejects IP addresses, credentials, subdomains (e.g. `www.example.com`), and inputs containing paths.
-    - The final label (TLD) must be alphabetic (2-63 chars); the left label follows DNS label rules.
+    - Uses tldextract for proper TLD handling and pyvalidators for format validation.
     """
-
-    # Domain validation regex: exactly two labels (second-level domain + TLD)
-    # - left label: 1-63 chars, letters/digits/hyphen, cannot start/end with hyphen
-    # - right label (TLD): letters only, 2-63 chars
-    # - overall length up to 253
-    _DOMAIN_RE = re.compile(r"^(?=.{1,253}$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.[A-Za-z]{2,63}$")
 
     def is_valid_domain(self, domain: str) -> bool:
         if not domain or not isinstance(domain, str):
@@ -26,36 +22,34 @@ class Security:
         if not raw:
             return False
 
-        # If the user provided a URL, extract the hostname (removes scheme, path, query)
-        if '://' in raw or raw.startswith('http'):
-            try:
-                parsed = urlparse(raw)
-                host = parsed.hostname or ''
-            except Exception:
-                return False
-        else:
-            # If there's a path component, take the first segment before '/'
-            host = raw.split('/')[0]
-
-        host = host.lower().strip()
-        if not host:
+        # Reject credentials (user:pass@host) - tldextract doesn't handle this well
+        if '@' in raw:
             return False
 
-        # Reject credentials (user:pass@host)
-        if '@' in host:
+        # Extract domain components using tldextract (handles URLs, ports, and multi-level TLDs)
+        # Examples:
+        #   "example.com" -> subdomain="", domain="example", suffix="com"
+        #   "https://example.com/path" -> subdomain="", domain="example", suffix="com"
+        #   "example.com.ar" -> subdomain="", domain="example", suffix="com.ar"
+        #   "www.example.com" -> subdomain="www", domain="example", suffix="com"
+        try:
+            extracted = tldextract.extract(raw)
+        except Exception:
             return False
 
-        # Strip port if present (host:port)
-        if ':' in host:
-            host = host.split(':', 1)[0]
-
-        # remove trailing dot if present (FQDN form)
-        if host.endswith('.'):
-            host = host[:-1]
-
-        # Accept only domain forms with exactly 2 labels (no subdomains)
-        parts = host.split('.')
-        if len(parts) != 2:
+        # Reject if there's a subdomain (must be empty for 2LD only)
+        if extracted.subdomain:
             return False
 
-        return bool(self._DOMAIN_RE.match(host))
+        # Reject if domain or suffix is empty
+        if not extracted.domain or not extracted.suffix:
+            return False
+
+        # Reconstruct the full domain for validation (domain + suffix)
+        full_domain = f"{extracted.domain}.{extracted.suffix}"
+
+        # Use pyvalidators for robust domain format validation
+        try:
+            return validate_domain(full_domain) is True
+        except (ValidationError, UnicodeError):
+            return False
