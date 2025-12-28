@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional
 
 from sqlmodel import select
@@ -66,77 +66,84 @@ def probe_master(
         future_to_sub = {exe.submit(prober.probe, sd): sd for sd in subdomains}
         for fut in as_completed(future_to_sub):
             sd = future_to_sub.get(fut)
+            res = None
             try:
                 res = fut.result()
                 results.append(res)
             except Exception as e:
                 app_logger.error("probe_master.worker_error", subdomain=sd, error=str(e))
+                continue  # Skip processing if probe failed
 
             # Persist each result immediately in its own session to avoid losing successes
+            if res is None:
+                continue
+                
             try:
-                if 'res' in locals():
-                    r = res
-                    sd = r["subdomain"]
-                    is_alive = r.get("is_alive", False)
-                    probed_at = r.get("probed_at", datetime.now())
+                r = res
+                sd = r["subdomain"]
+                is_alive = r.get("is_alive", False)
+                probed_at = r.get("probed_at", datetime.now())
 
-                    writer = SessionLocal()
-                    try:
-                        stmt = select(MasterSubdomains).where(MasterSubdomains.subdomain == sd)
-                        obj = writer.execute(stmt).scalars().one_or_none()
-                        if obj is None:
-                            app_logger.warning("probe_master.missing_in_db", subdomain=sd)
-                        else:
-                            # We no longer track `last_checked` or `is_alive` in master
-                            # Only update `last_alive` when a probe reports reachable
-                            if is_alive:
-                                obj.last_alive = probed_at
-                            writer.add(obj)
-
-                        # maintain alive_subdomains table: upsert when alive
+                writer = SessionLocal()
+                try:
+                    stmt = select(MasterSubdomains).where(MasterSubdomains.subdomain == sd)
+                    obj = writer.execute(stmt).scalars().one_or_none()
+                    if obj is None:
+                        app_logger.warning("probe_master.missing_in_db", subdomain=sd)
+                    else:
+                        # We no longer track `last_checked` or `is_alive` in master
+                        # Only update `last_alive` when a probe reports reachable
                         if is_alive:
-                            a_stmt = select(AliveSubdomain).where(AliveSubdomain.subdomain == sd)
-                            alive_obj = writer.execute(a_stmt).scalars().one_or_none()
-                            if alive_obj is None:
-                                alive_obj = AliveSubdomain(
-                                    subdomain=sd,
-                                    probed_at=probed_at,
-                                    last_alive=probed_at,
-                                    status_code=r.get("status_code"),
-                                )
-                                writer.add(alive_obj)
-                                # Defer notifications until after all probes are processed
-                                new_alives.append({
-                                    "subdomain": sd,
-                                    "status": r.get("status_code"),
-                                    "probed_at": probed_at,
-                                })
-                            else:
-                                alive_obj.probed_at = probed_at
-                                alive_obj.last_alive = probed_at
-                                alive_obj.status_code = r.get("status_code")
-                                writer.add(alive_obj)
+                            obj.last_alive = probed_at
+                        writer.add(obj)
 
-                        writer.commit()
-                    except Exception as e:
-                        writer.rollback()
-                        app_logger.error("probe_master.commit_error", subdomain=sd, error=str(e))
-                    finally:
-                        writer.close()
-                    # remove local res reference so we don't re-process on next iteration
-                    del res
-            except Exception:
-                # defensive: continue processing other futures
-                pass
+                    # maintain alive_subdomains table: upsert when alive
+                    if is_alive:
+                        a_stmt = select(AliveSubdomain).where(AliveSubdomain.subdomain == sd)
+                        alive_obj = writer.execute(a_stmt).scalars().one_or_none()
+                        if alive_obj is None:
+                            alive_obj = AliveSubdomain(
+                                subdomain=sd,
+                                probed_at=probed_at,
+                                last_alive=probed_at,
+                                status_code=r.get("status_code"),
+                            )
+                            writer.add(alive_obj)
+                            # Defer notifications until after all probes are processed
+                            new_alives.append({
+                                "subdomain": sd,
+                                "status": r.get("status_code"),
+                                "probed_at": probed_at,
+                            })
+                        else:
+                            alive_obj.probed_at = probed_at
+                            alive_obj.last_alive = probed_at
+                            alive_obj.status_code = r.get("status_code")
+                            writer.add(alive_obj)
 
-    app_logger.info("probe_master.finished", total=len(results))
+                    writer.commit()
+                except Exception as e:
+                    writer.rollback()
+                    app_logger.error("probe_master.commit_error", subdomain=sd, error=str(e))
+                finally:
+                    writer.close()
+            except Exception as e:
+                # defensive: continue processing other futures, but log unexpected errors
+                app_logger.warning("probe_master.unexpected_error", subdomain=sd if 'sd' in locals() else 'unknown', error=str(e))
+
+    app_logger.info("probe_master.finished", total=len(results), new_alives_count=len(new_alives))
 
     # Send batched notifications for any newly discovered alive subdomains
-    try:
-        if new_alives:
+    if new_alives:
+        try:
+            app_logger.debug("probe_master.sending_notifications", count=len(new_alives))
             notifier.notify_new_alives(new_alives)
-    except Exception as e:
-        app_logger.error("notifier.batch_error", error=str(e))
+            app_logger.info("probe_master.notifications_sent", count=len(new_alives))
+        except Exception as e:
+            app_logger.error("notifier.batch_error", error=str(e))
+    else:
+        app_logger.debug("probe_master.no_new_alives")
+    
     return results
 
 

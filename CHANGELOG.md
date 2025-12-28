@@ -6,6 +6,23 @@ The format is based on "Keep a Changelog" and the project is maintained under Se
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-12-28
+### Changed
+- Refactored `POST /probe` endpoint to follow best practices:
+  - Improved error handling with proper HTTP status codes (202 Accepted for async operations)
+  - Enhanced OpenAPI documentation with detailed descriptions and response models
+  - Removed user-controllable `limit` parameter (endpoint now probes all subdomains)
+- Fixed Discord notification message size issues:
+  - Added Discord embed limits enforcement (description max 4096 chars, title max 256 chars)
+  - Implemented truncation logic for batch notifications with "... and X more subdomains" message
+  - Limited batch notifications to 50 items to prevent description overflow
+  - Added mention support (`@everyone`, `@here`) to batch notifications
+  - Improved timestamp handling to prevent invalid embed formats
+
+### Fixed
+- Discord webhook errors (400 status) caused by embed description exceeding 4096 character limit
+- Improved error logging in probe master job with better exception tracking
+
 ## [0.2.1] - 2025-12-26
 ### Changed
 - Improved domain validation to support multi-level TLDs (e.g., `example.com.ar`, `example.co.uk`)

@@ -83,12 +83,17 @@ class Notifier:
         if not self.discord_url:
             return
         # Use an embed for prettier formatting
+        # Discord embed limits: title max 256 chars, description max 4096 chars
+        timestamp = probed_at_iso(payload.get('ts', ''))
         embed = {
             "title": "New alive subdomain",
             "description": f"**{payload['subdomain']}**\nStatus: `{payload['status']}`",
-            "timestamp": probed_at_iso(payload['ts']),
             "footer": {"text": "Dixcover"},
         }
+        # Only add timestamp if it's valid ISO8601 format (contains 'T' indicating ISO conversion succeeded)
+        if timestamp and 'T' in timestamp:
+            embed["timestamp"] = timestamp
+        
         # Discord mentions must be sent in the `content` field (not inside embeds)
         content = ""
         if self.discord_mention == "everyone":
@@ -203,16 +208,63 @@ class Notifier:
                 app_logger.error("notifier.slack_exception", error=str(e))
 
         # Discord: single embed listing entries in the description (keeps single message)
+        # Discord limits: embed description max 4096 chars, title max 256 chars
         if self.discord_url:
+            MAX_DESC_LEN = 4096
+            MAX_TITLE_LEN = 256
+            MAX_ITEMS_DISCORD = 50  # Reasonable limit to prevent description overflow
+            
             desc_lines = []
-            for it in normalized:
-                desc_lines.append(f"**{it['subdomain']}** — `{it['status']}` — {it['ts']}")
+            display_items = normalized[:MAX_ITEMS_DISCORD]
+            for it in display_items:
+                line = f"**{it['subdomain']}** — `{it['status']}` — {it['ts']}"
+                desc_lines.append(line)
+            
+            description = "\n".join(desc_lines)
+            
+            # Truncate description if too long (leave room for truncation message)
+            items_shown = len(display_items)
+            if len(description) > MAX_DESC_LEN - 50:
+                # Find the last complete line that fits
+                truncated = description[:MAX_DESC_LEN - 50]
+                last_newline = truncated.rfind('\n')
+                if last_newline > 0:
+                    description = truncated[:last_newline]
+                    # Count how many items actually fit (by counting newlines + 1)
+                    items_shown = description.count('\n') + 1
+                else:
+                    description = truncated
+                    items_shown = 0  # No complete items fit
+                
+                # Calculate remaining: total - items shown (accounting for truncation)
+                remaining = len(normalized) - items_shown
+                if remaining > 0:
+                    description += f"\n\n... and {remaining} more subdomains"
+                else:
+                    description += "\n\n... (truncated)"
+            
+            # Ensure title doesn't exceed limit
+            title = f"{len(normalized)} new alive subdomains"
+            if len(title) > MAX_TITLE_LEN:
+                title = title[:MAX_TITLE_LEN - 3] + "..."
+            
             embed = {
-                "title": f"{len(normalized)} new alive subdomains",
-                "description": "\n".join(desc_lines),
+                "title": title,
+                "description": description,
                 "footer": {"text": "Dixcover"},
             }
+            
+            # Discord mentions must be sent in the `content` field
+            content = ""
+            if self.discord_mention == "everyone":
+                content = "@everyone"
+            elif self.discord_mention == "here":
+                content = "@here"
+            
             body = {"embeds": [embed]}
+            if content:
+                body["content"] = content
+                
             try:
                 resp = requests.post(self.discord_url, json=body, timeout=5)
                 if resp.status_code >= 400:

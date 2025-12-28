@@ -120,7 +120,7 @@ docker compose up --build -d web
 The app exposes a small set of endpoints (FastAPI). With the default configuration they are mounted at root.
 
 - `POST /` — Start a discovery scan for a domain. Accepts a JSON body containing `domain` (e.g. `{"domain": "example.com"}`). This enqueues background discovery tasks (crt.sh, shodan, otx, virus total) and registers a daily job for the domain.
-- `POST /probe` — Trigger the probing job manually. Accepts optional query param `limit` to probe only a subset of master subdomains.
+- `POST /probe` — Trigger the probing job manually. Probes all subdomains in the master table.
 
 Examples:
 
@@ -128,7 +128,7 @@ Examples:
 curl -X POST -H "Content-Type: application/json" -d '{"domain":"example.com"}' http://127.0.0.1:8000/
 
 # trigger probe now
-curl -X POST "http://127.0.0.1:8000/probe?limit=50"
+curl -X POST "http://127.0.0.1:8000/probe"
 ```
 
 You can use `yaak` too, or any other API client to call the endpoints above.
