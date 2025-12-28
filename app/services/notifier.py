@@ -90,8 +90,8 @@ class Notifier:
             "description": f"**{payload['subdomain']}**\nStatus: `{payload['status']}`",
             "footer": {"text": "Dixcover"},
         }
-        # Only add timestamp if it's valid ISO8601 format
-        if timestamp and timestamp != payload.get('ts', ''):
+        # Only add timestamp if it's valid ISO8601 format (contains 'T' indicating ISO conversion succeeded)
+        if timestamp and 'T' in timestamp:
             embed["timestamp"] = timestamp
         
         # Discord mentions must be sent in the `content` field (not inside embeds)
@@ -223,16 +223,21 @@ class Notifier:
             description = "\n".join(desc_lines)
             
             # Truncate description if too long (leave room for truncation message)
+            items_shown = len(display_items)
             if len(description) > MAX_DESC_LEN - 50:
                 # Find the last complete line that fits
                 truncated = description[:MAX_DESC_LEN - 50]
                 last_newline = truncated.rfind('\n')
                 if last_newline > 0:
                     description = truncated[:last_newline]
+                    # Count how many items actually fit (by counting newlines + 1)
+                    items_shown = description.count('\n') + 1
                 else:
                     description = truncated
+                    items_shown = 0  # No complete items fit
                 
-                remaining = len(normalized) - len(display_items)
+                # Calculate remaining: total - items shown (accounting for truncation)
+                remaining = len(normalized) - items_shown
                 if remaining > 0:
                     description += f"\n\n... and {remaining} more subdomains"
                 else:

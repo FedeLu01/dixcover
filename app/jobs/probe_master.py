@@ -1,5 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional
 
 from sqlmodel import select
@@ -127,9 +127,9 @@ def probe_master(
                     app_logger.error("probe_master.commit_error", subdomain=sd, error=str(e))
                 finally:
                     writer.close()
-            except Exception:
-                # defensive: continue processing other futures
-                pass
+            except Exception as e:
+                # defensive: continue processing other futures, but log unexpected errors
+                app_logger.warning("probe_master.unexpected_error", subdomain=sd if 'sd' in locals() else 'unknown', error=str(e))
 
     app_logger.info("probe_master.finished", total=len(results), new_alives_count=len(new_alives))
 
@@ -140,7 +140,7 @@ def probe_master(
             notifier.notify_new_alives(new_alives)
             app_logger.info("probe_master.notifications_sent", count=len(new_alives))
         except Exception as e:
-            app_logger.error("notifier.batch_error", error=str(e), exc_info=e)
+            app_logger.error("notifier.batch_error", error=str(e))
     else:
         app_logger.debug("probe_master.no_new_alives")
     

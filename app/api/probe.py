@@ -53,7 +53,7 @@ async def probe_now(
         )
     except Exception as e:
         # Log the full exception for debugging
-        app_logger.error("api.probe.error", error=str(e), exc_info=e)
+        app_logger.error("api.probe.error", error=str(e))
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to schedule probe job. Please try again later.",
